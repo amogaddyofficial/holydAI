@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <!-- Leaflet CSS for OSM -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+</head>
+<body>
+    <header>
+        <div class="logo-glass">holydAI</div>
+        <div style="display: flex; gap: 1.5rem; align-items: center;">
+            <div id="partner-mode-toggle" style="background: rgba(0,0,0,0.05); padding: 4px 12px; border-radius: 980px; display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                <span style="font-size: 0.75rem; font-weight: 700; color: var(--text-dim);">DEMO PARTNER</span>
+                <div id="toggle-switch" style="width: 32px; height: 18px; background: #ccc; border-radius: 20px; position: relative; transition: 0.3s;">
+                    <div id="toggle-knob" style="width: 14px; height: 14px; background: white; border-radius: 50%; position: absolute; top: 2px; left: 2px; transition: 0.3s;"></div>
+                </div>
+            </div>
+            <a href="#" style="color: var(--text-dim); text-decoration: none; font-size: 0.9rem; font-weight: 500;">Supporto</a>
+        </div>
+    </header>
+
+    <div class="container">
+        <section class="hero-section">
+            <h1 class="hero-title">Il tuo prossimo viaggio,<br>disegnato dall'AI.</h1>
+            <p style="color: var(--text-dim); font-size: 1.1rem; max-width: 600px; margin: 0 auto 2.5rem;">Pianifica, prenota e parti. Tutto in un'unica interfaccia liquida e intelligente.</p>
+            
+            <div class="search-bar-container">
+                <form id="travel-form">
+                    <div class="form-group">
+                        <label for="destination">Destinazione</label>
+                        <input type="text" id="destination" name="destination" placeholder="Dove vuoi andare?" required>
+                    </div>
+                    <div class="form-group" style="flex: 0.4;">
+                        <label for="duration">Notti</label>
+                        <input type="number" id="duration" name="duration" min="1" max="30" value="3" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="budget">Stile</label>
+                        <select id="budget" name="budget">
+                            <option value="economico">Budget</option>
+                            <option value="medio" selected>Bilanciato</option>
+                            <option value="lusso">Premium</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="trip_type">Chi</label>
+                        <select id="trip_type" name="trip_type">
+                            <option value="solo">1 Persona</option>
+                            <option value="coppia">2 Persone</option>
+                            <option value="famiglia">Famiglia</option>
+                            <option value="amici">Gruppo</option>
+                        </select>
+                    </div>
+                    <div class="form-group" style="border: none;">
+                        <button type="submit" class="btn-primary" id="search-btn">CREA VIAGGIO</button>
+                    </div>
+                </form>
+            </div>
+        </section>
+
+        <div id="loader" class="loader">
+            <div class="spinner"></div>
+            <p style="font-weight: 500; color: var(--text-main);">L'AI sta analizzando migliaia di possibilità...</p>
+            <p style="font-size: 0.85rem; color: var(--text-dim); margin-top: 0.5rem;">Creazione itinerario e ricerca voli in corso.</p>
+        </div>
+
+        <main class="main-grid" id="main-content" style="display: none;">
+            <!-- Left Column: Itinerary & Map -->
+            <section class="results-container">
+                <div id="itinerary-section" class="glass-card">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
+                        <h2 style="font-size: 1.5rem; font-weight: 700; letter-spacing: -0.02em;">Il tuo Itinerario</h2>
+                        <div style="display: flex; gap: 0.5rem;">
+                            <button id="share-btn" class="btn-primary" style="background: white; color: var(--secondary); border: 1px solid var(--secondary); font-size: 0.8rem; padding: 0.5rem 1.2rem;">CONDIVIDI</button>
+                            <button id="download-btn" class="btn-primary" style="font-size: 0.8rem; padding: 0.5rem 1.2rem;">SALVA PDF</button>
+                        </div>
+                    </div>
+                    
+                    <div id="map"></div>
+
+                    <div id="itinerary-content" class="itinerary-content">
+                        <!-- AI Content will be injected here -->
+                    </div>
+                </div>
+            </section>
+
+            <!-- Right Column: Booking Arsenal -->
+            <aside>
+                <div class="glass-card" style="position: sticky; top: 80px;">
+                    <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 1.5rem;">
+                        <h3 style="font-size: 1.1rem; font-weight: 700;">Arsenal Motori</h3>
+                        <span style="font-size: 0.65rem; color: var(--text-dim); font-weight: 500; text-transform: uppercase;">Integrazioni Target</span>
+                    </div>
+                    
+                    <div class="booking-arsenal" id="booking-arsenal">
+                        <!-- Booking Cards will be injected here -->
+                    </div>
+
+                    <div id="smart-insights" style="margin-top: 2rem; display: none;">
+                        <h3 style="font-size: 1rem; font-weight: 700; margin-bottom: 1rem; color: var(--accent);">
+                            <i class="fas fa-brain"></i> holydAI Insights
+                        </h3>
+                        <div id="insights-content" style="font-size: 0.85rem; background: rgba(94, 92, 230, 0.05); padding: 1rem; border-radius: 12px; border: 1px solid rgba(94, 92, 230, 0.1);">
+                            <!-- Insights will be injected here -->
+                        </div>
+                    </div>
+
+                    <!-- Real Web Results Section -->
+                    <div id="web-results-section" style="margin-top: 2rem; display: none;">
+                        <h3 style="font-size: 1rem; font-weight: 700; margin-bottom: 1rem;">
+                            <i class="fas fa-globe"></i> Risultati dal Web
+                        </h3>
+                        <div id="web-results-grid" style="display: flex; flex-direction: column; gap: 1rem;">
+                            <!-- Web results will be injected here -->
+                        </div>
+                    </div>
+
+                    <div style="margin-top: 2rem; padding-top: 1.5rem; border-top: 1px solid rgba(0,0,0,0.05);">
+                        <p style="font-size: 0.8rem; color: var(--text-dim); line-height: 1.4;">
+                            <i class="fas fa-info-circle" style="margin-right: 5px;"></i>
+                            Le tariffe sono aggiornate in tempo reale dai nostri partner leader nel settore.
+                        </p>
+                    </div>
+                </div>
+            </aside>
+        </main>
+
+        <footer>
+            <span class="footer-logo">holydAI</span>
+            <p>&copy; 2026 holydAI Ecosystem. Powered by Advanced AI Planning.</p>
+            <p style="font-size: 0.7rem; margin-top: 1rem; opacity: 0.6;">Questa è una versione demo ad uso esclusivo per partnership commerciali.</p>
+        </footer>
+    </div>
+
+    <!-- Leaflet JS for OSM -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+</html>
