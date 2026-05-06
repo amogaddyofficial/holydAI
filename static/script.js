@@ -40,129 +40,173 @@ function addAnimatedMarker(lat, lon, title) {
     return marker;
 }
 
+// Persistent State Management
+let currentItineraryData = null;
+
+function saveToLocalStorage(data) {
+    localStorage.setItem('holydai_saved_trip', JSON.stringify(data));
+}
+
+function loadFromLocalStorage() {
+    const saved = localStorage.getItem('holydai_saved_trip');
+    if (saved) {
+        currentItineraryData = JSON.parse(saved);
+        renderItineraryState(currentItineraryData);
+    }
+}
+
+function renderItineraryState(data) {
+    if (!data) return;
+    
+    document.getElementById('main-content').style.display = 'grid';
+    document.getElementById('itinerary-content').innerHTML = formatPremiumItinerary(data.itinerary);
+    
+    // Map
+    if (data.coords) {
+        initMap(data.coords.lat, data.coords.lon);
+        setTimeout(() => map.invalidateSize(), 100);
+        addAnimatedMarker(data.coords.lat, data.coords.lon, data.destination || 'Destinazione');
+    }
+
+    // Booking Cards
+    const arsenal = document.getElementById('booking-arsenal');
+    arsenal.innerHTML = '';
+    data.cards.forEach(card => {
+        const cardEl = document.createElement('div');
+        cardEl.className = 'booking-card';
+        cardEl.onclick = () => window.open(card.url, '_blank');
+        cardEl.innerHTML = `
+            <div class="verified-badge" style="background: #fff3e0; color: #ff9800;"><i class="fas fa-hourglass-start"></i> Target Partner</div>
+            <i class="${card.icon}"></i>
+            <span>${card.type}</span>
+            <div class="partner-name">${card.partner}</div>
+            <div style="font-size: 0.8rem; font-weight: 700; color: var(--secondary); margin-top: 0.5rem;">${card.price_info}</div>
+            <div class="commission-info" style="display: ${partnerMode ? 'block' : 'none'}; margin-top: 10px; padding-top: 8px; border-top: 1px dashed #ddd; font-size: 0.7rem; color: #4caf50; font-weight: 700;">
+                <i class="fas fa-chart-line"></i> Est. Comm: 5-12%
+            </div>
+        `;
+        arsenal.appendChild(cardEl);
+    });
+
+    // Web Results
+    const webSection = document.getElementById('web-results-section');
+    const webGrid = document.getElementById('web-results-grid');
+    webGrid.innerHTML = '';
+    if (data.web_results && data.web_results.length > 0) {
+        webSection.style.display = 'block';
+        data.web_results.forEach(res => {
+            const resEl = document.createElement('div');
+            resEl.className = 'glass-card'; // Reuse style
+            resEl.style.padding = '1rem';
+            resEl.style.marginBottom = '1rem';
+            resEl.innerHTML = `
+                <div style="font-weight: 700; font-size: 0.9rem; margin-bottom: 0.3rem;">
+                    <a href="${res.link}" target="_blank" style="color: var(--secondary); text-decoration: none;">${res.title}</a>
+                </div>
+                <div style="font-size: 0.8rem; color: var(--text-dim); line-height: 1.4;">${res.snippet}</div>
+            `;
+            webGrid.appendChild(resEl);
+        });
+    }
+
+    // Insights
+    document.getElementById('smart-insights').style.display = 'block';
+    document.getElementById('insights-content').innerHTML = `
+        <ul style="list-style: none; padding: 0;">
+            <li style="margin-bottom: 0.5rem;"><i class="fas fa-magic" style="color: var(--accent);"></i> Itinerario ottimizzato.</li>
+            <li style="margin-bottom: 0.5rem;"><i class="fas fa-leaf" style="color: #4caf50;"></i> Scelte eco-friendly identificate.</li>
+            <li><i class="fas fa-coins" style="color: #ffb100;"></i> Risparmio stimato del 15%.</li>
+        </ul>
+    `;
+}
+
+// Main Form Logic
 document.getElementById('travel-form').addEventListener('submit', async (e) => {
     e.preventDefault();
+    const data = {
+        destination: document.getElementById('destination').value,
+        duration: document.getElementById('duration').value,
+        budget: document.getElementById('budget').value,
+        trip_type: document.getElementById('trip_type').value,
+        interests: document.getElementById('interests').value
+    };
 
-    const formData = new FormData(e.target);
-    const data = Object.fromEntries(formData.entries());
-
-    // UI Feedback
     document.getElementById('loader').style.display = 'block';
     document.getElementById('main-content').style.display = 'none';
 
     try {
-        const [genResponse, offersResponse] = await Promise.all([
+        const [genRes, offersRes] = await Promise.all([
             fetch('/generate', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify(data)
             }),
             fetch('/search_offers', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify(data)
             })
         ]);
 
-        const genResult = await genResponse.json();
-        const offersResult = await offersResponse.json();
+        const genResult = await genRes.json();
+        const offersResult = await offersRes.json();
 
-        // Show Content
+        currentItineraryData = {
+            ...data,
+            itinerary: genResult.itinerary,
+            coords: genResult.coords,
+            cards: offersResult.cards,
+            web_results: offersResult.web_results
+        };
+
         document.getElementById('loader').style.display = 'none';
-        const mainContent = document.getElementById('main-content');
-        mainContent.style.display = 'grid';
-
-        // Render Itinerary
-        const itineraryContent = document.getElementById('itinerary-content');
-        itineraryContent.innerHTML = formatPremiumItinerary(genResult.itinerary);
-        
-        // Initialize Map
-        if (genResult.coords) {
-            initMap(genResult.coords.lat, genResult.coords.lon);
-            // Ensure map fills container correctly after display:grid
-            setTimeout(() => map.invalidateSize(), 100);
-            
-            addAnimatedMarker(genResult.coords.lat, genResult.coords.lon, data.destination);
-            
-            // Add some "simulated" POI markers around the destination
-            const offset = 0.01;
-            addAnimatedMarker(genResult.coords.lat + offset, genResult.coords.lon + offset, "Attrazione 1");
-            addAnimatedMarker(genResult.coords.lat - offset, genResult.coords.lon - offset, "Attrazione 2");
-            
-            // Draw path
-            const pathPoints = [
-                [genResult.coords.lat, genResult.coords.lon],
-                [genResult.coords.lat + offset, genResult.coords.lon + offset],
-                [genResult.coords.lat - offset, genResult.coords.lon - offset]
-            ];
-            routeLine = L.polyline(pathPoints, { color: 'var(--secondary)', weight: 3, dashArray: '5, 10', opacity: 0.6 }).addTo(map);
-        }
-
-        // Render Booking Cards
-        const arsenal = document.getElementById('booking-arsenal');
-        arsenal.innerHTML = '';
-        
-        offersResult.cards.forEach(card => {
-            const cardEl = document.createElement('div');
-            cardEl.className = 'booking-card';
-            cardEl.onclick = () => window.open(card.url, '_blank');
-            cardEl.innerHTML = `
-                <div class="verified-badge" style="background: #fff3e0; color: #ff9800;"><i class="fas fa-hourglass-start"></i> Target Partner</div>
-                <i class="${card.icon}"></i>
-                <span>${card.type}</span>
-                <div class="partner-name">${card.partner}</div>
-                <div style="font-size: 0.8rem; font-weight: 700; color: var(--secondary); margin-top: 0.5rem;">${card.price_info}</div>
-                <div class="commission-info" style="display: ${partnerMode ? 'block' : 'none'}; margin-top: 10px; padding-top: 8px; border-top: 1px dashed #ddd; font-size: 0.7rem; color: #4caf50; font-weight: 700;">
-                    <i class="fas fa-chart-line"></i> Est. Comm: 5-12%
-                </div>
-            `;
-            arsenal.appendChild(cardEl);
-        });
-
-        // Show Smart Insights (Demo Logic)
-        const insights = document.getElementById('smart-insights');
-        const insightsContent = document.getElementById('insights-content');
-        insights.style.display = 'block';
-        insightsContent.innerHTML = `
-            <ul style="list-style: none; padding: 0;">
-                <li style="margin-bottom: 0.5rem;"><i class="fas fa-magic" style="color: var(--accent);"></i> Itinerario ottimizzato per evitare folle locali.</li>
-                <li style="margin-bottom: 0.5rem;"><i class="fas fa-leaf" style="color: #4caf50;"></i> Scelte eco-friendly identificate in ${data.destination}.</li>
-                <li><i class="fas fa-coins" style="color: #ffb100;"></i> Risparmio stimato del 15% sulle tariffe standard.</li>
-            </ul>
-        `;
-
-        // Render Real Web Results
-        const webSection = document.getElementById('web-results-section');
-        const webGrid = document.getElementById('web-results-grid');
-        webGrid.innerHTML = '';
-        
-        if (offersResult.web_results && offersResult.web_results.length > 0) {
-            webSection.style.display = 'block';
-            offersResult.web_results.forEach(res => {
-                const resEl = document.createElement('div');
-                resEl.style.padding = '1rem';
-                resEl.style.background = 'white';
-                resEl.style.borderRadius = '12px';
-                resEl.style.border = '1px solid rgba(0,0,0,0.05)';
-                resEl.innerHTML = `
-                    <div style="font-weight: 700; font-size: 0.9rem; margin-bottom: 0.3rem;">
-                        <a href="${res.link}" target="_blank" style="color: var(--secondary); text-decoration: none;">${res.title}</a>
-                    </div>
-                    <div style="font-size: 0.8rem; color: var(--text-dim); line-height: 1.4;">${res.snippet}</div>
-                `;
-                webGrid.appendChild(resEl);
-            });
-        } else {
-            webSection.style.display = 'none';
-        }
+        renderItineraryState(currentItineraryData);
+        saveToLocalStorage(currentItineraryData);
 
     } catch (error) {
         console.error(error);
-        alert('Si è verificato un errore. Riprova più tardi.');
+        alert('Si è verificato un errore.');
         document.getElementById('loader').style.display = 'none';
     }
 });
 
+// Import/Export Logic
+document.getElementById('export-btn').addEventListener('click', () => {
+    if (!currentItineraryData) return alert('Nessun itinerario da esportare.');
+    const blob = new Blob([JSON.stringify(currentItineraryData, null, 2)], {type: 'application/json'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `holydAI_${currentItineraryData.destination.replace(/\s+/g, '_')}.json`;
+    a.click();
+});
+
+document.getElementById('import-btn').addEventListener('click', () => {
+    document.getElementById('import-file').click();
+});
+
+document.getElementById('import-file').addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (event) => {
+        try {
+            const data = JSON.parse(event.target.result);
+            currentItineraryData = data;
+            renderItineraryState(data);
+            saveToLocalStorage(data);
+            alert('Itinerario importato con successo!');
+        } catch (err) {
+            alert('File non valido.');
+        }
+    };
+    reader.readAsText(file);
+});
+
+// Initialize
+window.onload = loadFromLocalStorage;
+
+// Share Button Feedback
 document.getElementById('share-btn').addEventListener('click', function() {
     const btn = this;
     const url = window.location.href;

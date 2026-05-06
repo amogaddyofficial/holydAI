@@ -1,4 +1,4 @@
 flask
-torch
-transformers
+requests
 duckduckgo_search
+python-dotenv

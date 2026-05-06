@@ -14,13 +14,22 @@
 <body>
     <header>
         <div class="logo-glass">holydAI</div>
-        <div style="display: flex; gap: 1.5rem; align-items: center;">
+        <div style="display: flex; gap: 1rem; align-items: center;">
             <div id="partner-mode-toggle" style="background: rgba(0,0,0,0.05); padding: 4px 12px; border-radius: 980px; display: flex; align-items: center; gap: 8px; cursor: pointer;">
                 <span style="font-size: 0.75rem; font-weight: 700; color: var(--text-dim);">DEMO PARTNER</span>
                 <div id="toggle-switch" style="width: 32px; height: 18px; background: #ccc; border-radius: 20px; position: relative; transition: 0.3s;">
                     <div id="toggle-knob" style="width: 14px; height: 14px; background: white; border-radius: 50%; position: absolute; top: 2px; left: 2px; transition: 0.3s;"></div>
                 </div>
             </div>
+            
+            <button id="export-btn" title="Esporta Itinerario" style="background: none; border: none; cursor: pointer; color: var(--text-dim); font-size: 1rem;">
+                <i class="fas fa-file-export"></i>
+            </button>
+            <button id="import-btn" title="Importa Itinerario" style="background: none; border: none; cursor: pointer; color: var(--text-dim); font-size: 1rem;">
+                <i class="fas fa-file-import"></i>
+            </button>
+            <input type="file" id="import-file" style="display: none;" accept=".json">
+            
             <a href="#" style="color: var(--text-dim); text-decoration: none; font-size: 0.9rem; font-weight: 500;">Supporto</a>
         </div>
     </header>
