@@ -9,27 +9,40 @@ load_dotenv()
 
 app = Flask(__name__)
 
-# Hugging Face Inference API Configuration
-HF_API_URL = "https://api-inference.huggingface.co/models/HuggingFaceTB/SmolLM2-1.7B-Instruct"
-HF_TOKEN = os.getenv("HF_TOKEN")
+# GenerAI API Configuration
+GENERAI_API_URL = "https://amogaddy-generai.hf.space/ask"
+
+# Mistral Fallback Configuration
+MISTRAL_API_URL = "https://api.mistral.ai/v1/chat/completions"
+MISTRAL_API_KEY = os.getenv("MISTRAL_API_KEY")
 
 def query_ai(prompt):
-    headers = {"Authorization": f"Bearer {HF_TOKEN}"} if HF_TOKEN else {}
-    payload = {
-        "inputs": prompt,
-        "parameters": {
-            "max_new_tokens": 600,
-            "temperature": 0.7,
-            "top_p": 0.95,
-            "return_full_text": False
-        }
+    # Try GenerAI first
+    payload = {"prompt": prompt}
+    try:
+        response = requests.post(GENERAI_API_URL, json=payload, timeout=10)
+        result = response.json()
+        if result.get('result') and "Non ho trovato informazioni" not in result.get('result'):
+            return result.get('result')
+    except Exception as e:
+        print(f"GenerAI Error: {e}")
+
+    # Fallback to Mistral (Ministral)
+    print("Falling back to Mistral...")
+    headers = {
+        "Authorization": f"Bearer {MISTRAL_API_KEY}",
+        "Content-Type": "application/json"
+    }
+    mistral_payload = {
+        "model": "ministral-3b-latest",
+        "messages": [{"role": "user", "content": prompt}]
     }
     try:
-        response = requests.post(HF_API_URL, headers=headers, json=payload)
+        response = requests.post(MISTRAL_API_URL, headers=headers, json=mistral_payload, timeout=15)
         result = response.json()
-        return result[0]['generated_text'] if isinstance(result, list) else None
+        return result['choices'][0]['message']['content']
     except Exception as e:
-        print(f"AI API Error: {e}")
+        print(f"Mistral API Error: {e}")
         return None
 
 @app.route('/')
@@ -45,8 +58,7 @@ def generate_itinerary():
     trip_type = data.get('trip_type')
     interests = data.get('interests', 'generali')
 
-    prompt = f"<|im_start|>system\nSei holydAI, l'assistente di viaggio più lussuoso al mondo. Crea itinerari densi di dettagli in italiano.<|im_end|>\n"
-    prompt += f"<|im_start|>user\nViaggio di {days} giorni a {dest}. Stile {budget}. Passeggeri: {trip_type}. Interessi: {interests}. Dividi per 'Giorno X'.<|im_end|>\n<|im_start|>assistant\n"
+    prompt = f"Sei holydAI, l'assistente di viaggio più lussuoso al mondo. Crea un itinerario dettagliato per un viaggio di {days} giorni a {dest}. Stile: {budget}. Passeggeri: {trip_type}. Interessi: {interests}. Dividi la risposta per 'Giorno X'."
 
     itinerary = query_ai(prompt)
     if not itinerary:
