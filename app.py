@@ -45,8 +45,7 @@ def generate_itinerary():
     trip_type = data.get('trip_type')
     interests = data.get('interests', 'generali')
 
-    prompt = f"<|im_start|>system\nSei holydAI, l'assistente di viaggio più lussuoso al mondo. Crea itinerari densi di dettagli in italiano.<|im_end|>\n"
-    prompt += f"<|im_start|>user\nViaggio di {days} giorni a {dest}. Stile {budget}. Passeggeri: {trip_type}. Interessi: {interests}. Dividi per 'Giorno X'.<|im_end|>\n<|im_start|>assistant\n"
+    prompt = f"Sei holydAI, l'assistente di viaggio più lussuoso al mondo. Crea un itinerario dettagliato per un viaggio di {days} giorni a {dest}. Stile: {budget}. Passeggeri: {trip_type}. Interessi: {interests}. Dividi la risposta per 'Giorno X'."
 
     itinerary = query_ai(prompt)
     if not itinerary:
